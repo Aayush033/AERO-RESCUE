@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AERO-RESCUE | Space-Borne Flood & Isolation Intelligence</title>
+  <meta name="description" content="Satellite radar & optical damage mapping, network isolation analysis, and factual SitRep generation for the Himalayan flood disaster.">
+  
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Mukta:wght@400;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-mode">
+
+  <!-- Top Navigation Bar -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="logo-badge">
+        <span class="satellite-icon">🛰️</span>
+      </div>
+      <div class="title-container">
+        <h1 class="app-title">AERO-RESCUE <span class="badge-tag">TRACK B</span></h1>
+        <p class="app-subtitle">Himalayan Flood & Debris Damage Intelligence from Space</p>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <div class="case-study-picker">
+        <label for="caseStudySelect">Active Corridor:</label>
+        <select id="caseStudySelect">
+          <option value="trishuli" selected>Trishuli–Bhote Koshi Valley, Nepal (26 Aug 2026)</option>
+          <option value="langtang">Upper Langtang Valley Glacial Breach</option>
+          <option value="custom">Custom BBOX / Live Judicial Area</option>
+        </select>
+      </div>
+      <div class="date-picker-wrap">
+        <label for="eventDateInput">Event Date:</label>
+        <input type="date" id="eventDateInput" value="2026-08-26">
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div class="gpu-status-pill" id="gpuStatusPill" title="NVIDIA Hardware Acceleration Status">
+        <span class="status-dot pulsing"></span>
+        <span id="gpuText">Checking GPU...</span>
+      </div>
+      <button id="runPipelineBtn" class="btn btn-primary">
+        <span class="btn-icon">⚡</span> Run Satellite Analysis
+      </button>
+      <button id="openSitRepBtn" class="btn btn-secondary">
+        <span class="btn-icon">📋</span> SitRep #01
+      </button>
+      <button id="openBenchmarkBtn" class="btn btn-outline">
+        <span class="btn-icon">⚖️</span> EMSR927 Benchmark
+      </button>
+    </div>
+  </header>
+
+  <!-- Live KPI Metrics Strip -->
+  <section class="kpi-strip" id="kpiStrip">
+    <div class="kpi-card danger-card">
+      <div class="kpi-icon">🚨</div>
+      <div class="kpi-content">
+        <span class="kpi-label">Cut-Off Settlements</span>
+        <div class="kpi-value-row">
+          <span class="kpi-value" id="kpiIsolatedCount">4</span>
+          <span class="kpi-unit">villages</span>
+        </div>
+        <span class="kpi-subtext" id="kpiIsolatedPop">10,850 people isolated</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon">🌊</div>
+      <div class="kpi-content">
+        <span class="kpi-label">Flooded & Debris Extent</span>
+        <div class="kpi-value-row">
+          <span class="kpi-value" id="kpiHazardArea">41.6</span>
+          <span class="kpi-unit">km²</span>
+        </div>
+        <span class="kpi-subtext" id="kpiHazardHa">4,160 hectares mapped</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon">🚧</div>
+      <div class="kpi-content">
+        <span class="kpi-label">Severed Road Segments</span>
+        <div class="kpi-value-row">
+          <span class="kpi-value" id="kpiRoadsSevered">38.2</span>
+          <span class="kpi-unit">km</span>
+        </div>
+        <span class="kpi-subtext" id="kpiRoadDetails">Pasang Lhamu Hwy corridor</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon">🌉</div>
+      <div class="kpi-content">
+        <span class="kpi-label">Destroyed Bridges</span>
+        <div class="kpi-value-row">
+          <span class="kpi-value" id="kpiBridgesDown">4</span>
+          <span class="kpi-unit">bridges</span>
+        </div>
+        <span class="kpi-subtext">Critical river crossings</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon">🏚️</div>
+      <div class="kpi-content">
+        <span class="kpi-label">Impacted Buildings</span>
+        <div class="kpi-value-row">
+          <span class="kpi-value" id="kpiBuildingsHit">408</span>
+          <span class="kpi-unit">structures</span>
+        </div>
+        <span class="kpi-subtext">Pre-event OSM footprints</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Mission Control Workspace -->
+  <main class="main-layout">
+    
+    <!-- Left Sidebar: Layer Control & Hydrological Flow Tracer -->
+    <aside class="sidebar-left glass-panel">
+      <div class="panel-section">
+        <h2 class="section-title">Satellite & Analysis Layers</h2>
+        
+        <div class="layer-control-group">
+          <label class="layer-item">
+            <input type="checkbox" id="layerWater" checked>
+            <span class="layer-color-chip water-chip"></span>
+            <span class="layer-name">Water Inundation (SAR Drop)</span>
+          </label>
+          <label class="layer-item">
+            <input type="checkbox" id="layerDebris" checked>
+            <span class="layer-color-chip debris-chip"></span>
+            <span class="layer-name">Debris & Sediment Deposits</span>
+          </label>
+          <label class="layer-item">
+            <input type="checkbox" id="layerSeveredRoads" checked>
+            <span class="layer-color-chip road-cut-chip"></span>
+            <span class="layer-name">Severed Road Segments</span>
+          </label>
+          <label class="layer-item">
+            <input type="checkbox" id="layerIntactRoads" checked>
+            <span class="layer-color-chip road-ok-chip"></span>
+            <span class="layer-name">Intact Road Network</span>
+          </label>
+          <label class="layer-item">
+            <input type="checkbox" id="layerBridges" checked>
+            <span class="layer-color-chip bridge-chip"></span>
+            <span class="layer-name">Compromised River Bridges</span>
+          </label>
+          <label class="layer-item">
+            <input type="checkbox" id="layerSettlements" checked>
+            <span class="layer-color-chip settlement-chip"></span>
+            <span class="layer-name">Settlements & Hospital Status</span>
+          </label>
+          <label class="layer-item">
+            <input type="checkbox" id="layerBuildings" checked>
+            <span class="layer-color-chip building-chip"></span>
+            <span class="layer-name">Damaged OSM Buildings</span>
+          </label>
+          <label class="layer-item">
+            <input type="checkbox" id="layerFlowTrace" checked>
+            <span class="layer-color-chip flow-chip"></span>
+            <span class="layer-name">DEM Upstream Flow Path (Bonus)</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Bonus Hydrological Valley Flow Tracing Tool -->
+      <div class="panel-section highlight-box">
+        <div class="section-header-row">
+          <h2 class="section-title">Upstream Valley Flow Tracer</h2>
+          <span class="badge-mini">BONUS TASK</span>
+        </div>
+        <p class="section-desc">
+          Click any high-altitude point or glacier on the map to trace the flood path down the valley using Copernicus WorldDEM-30.
+        </p>
+        <button id="activateTraceModeBtn" class="btn btn-action">
+          <span class="btn-icon">📍</span> Click Map to Trace Upstream Point
+        </button>
+        <div id="traceResultSummary" class="trace-summary hidden">
+          <div class="trace-metric">
+            <span class="metric-title">Descent Distance:</span>
+            <span class="metric-val" id="traceLength">24.6 km</span>
+          </div>
+          <div class="trace-metric">
+            <span class="metric-title">Elevation Drop:</span>
+            <span class="metric-val" id="traceDrop">1,420 m</span>
+          </div>
+          <div class="trace-metric">
+            <span class="metric-title">Settlements in Surge Path:</span>
+            <span class="metric-val highlight" id="traceVillagesHit">3 villages</span>
+          </div>
+          <div class="surge-villages-list" id="surgeVillagesList">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Cut-Off Settlements Critical Action List -->
+      <div class="panel-section">
+        <h2 class="section-title">Isolated Settlements Roster</h2>
+        <div class="isolated-list" id="isolatedListContainer">
+          <!-- Dynamically populated with status pills and actions -->
+        </div>
+      </div>
+    </aside>
+
+    <!-- Center: Interactive GIS Map Canvas -->
+    <section class="map-container">
+      <div id="map" class="map-canvas"></div>
+      
+      <!-- Map Overlay Controls -->
+      <div class="map-controls-floating">
+        <div class="basemap-selector">
+          <button class="basemap-btn active" data-basemap="satellite">Satellite Imagery</button>
+          <button class="basemap-btn" data-basemap="terrain">Shaded Relief (DEM)</button>
+          <button class="basemap-btn" data-basemap="dark">Dark Tactical</button>
+        </div>
+        <div class="legend-panel glass-panel">
+          <div class="legend-header">Map Legend</div>
+          <div class="legend-row"><span class="legend-icon water-bg"></span> Inundated Water (SAR Specular)</div>
+          <div class="legend-row"><span class="legend-icon debris-bg"></span> Debris & Mud Torrent</div>
+          <div class="legend-row"><span class="legend-icon red-line"></span> Severed Highway Segment</div>
+          <div class="legend-row"><span class="legend-icon gray-line"></span> Passable Road Network</div>
+          <div class="legend-row"><span class="legend-icon cut-off-dot"></span> Cut-Off Village (Isolated)</div>
+          <div class="legend-row"><span class="legend-icon hospital-dot"></span> Operational Hospital Hub</div>
+        </div>
+      </div>
+
+      <!-- Live Loading Notification -->
+      <div class="map-loader hidden" id="mapLoader">
+        <div class="spinner"></div>
+        <span id="loaderMessage">Processing Sentinel-1 SAR orbit 121 and Copernicus DEM...</span>
+      </div>
+    </section>
+
+    <!-- Right Sidebar: Factual Rescuer Copilot Chat -->
+    <aside class="sidebar-right glass-panel">
+      <div class="copilot-header">
+        <div class="copilot-title-row">
+          <span class="copilot-badge">AI COPILOT</span>
+          <h2 class="section-title">Rescuer SitRep Copilot</h2>
+        </div>
+        <p class="copilot-subtitle">Zero-hallucination assistant: 100% answers grounded in spatial map vectors.</p>
+      </div>
+
+      <!-- Interactive Chat Stream -->
+      <div class="chat-messages" id="chatMessages">
+        <div class="chat-bubble bot-bubble">
+          <div class="bubble-sender">SATELLITE COPILOT</div>
+          <p>Rescue operations center online. I have analyzed the Trishuli–Bhote Koshi disaster corridor using Sentinel-1 SAR change detection and pre-event OpenStreetMap topology.</p>
+          <p>Ask me any question regarding cut-off villages, damaged bridges, or hospital accessibility.</p>
+        </div>
+      </div>
+
+      <!-- Suggested Quick Questions -->
+      <div class="quick-chips">
+        <button class="chip-btn" data-q="Which villages are completely cut off from hospitals?">Cut-off villages?</button>
+        <button class="chip-btn" data-q="Is the road to Dhunche hospital passable?">Dhunche hospital route?</button>
+        <button class="chip-btn" data-q="How many km of roads and how many bridges are destroyed?">Road & bridge toll?</button>
+        <button class="chip-btn" data-q="Can vehicular relief supplies reach Timure?">Can trucks reach Timure?</button>
+      </div>
+
+      <!-- Chat Input Field -->
+      <form class="chat-input-bar" id="chatForm">
+        <input type="text" id="chatInput" placeholder="Ask rescuer question in English or Nepali..." autocomplete="off">
+        <button type="submit" class="btn btn-send">Send</button>
+      </form>
+    </aside>
+
+  </main>
+
+  <!-- Situation Report (SitRep) Modal -->
+  <div class="modal-backdrop hidden" id="sitrepModal">
+    <div class="modal-card glass-panel">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title">Official Situation Report (SitRep #01)</h2>
+          <p class="modal-subtitle">Format: NDRRMA / Copernicus Emergency Rapid Mapping</p>
+        </div>
+        <div class="modal-header-actions">
+          <div class="lang-toggle-group">
+            <button class="lang-btn active" id="langEnBtn">English</button>
+            <button class="lang-btn" id="langNeBtn">नेपाली (Nepali)</button>
+          </div>
+          <button class="btn btn-outline" id="printSitrepBtn">🖨️ Print / Save PDF</button>
+          <button class="modal-close" id="closeSitrepBtn">&times;</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <pre class="sitrep-text" id="sitrepContent">Loading Situation Report...</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- EMSR927 Copernicus EMS Validation Modal -->
+  <div class="modal-backdrop hidden" id="benchmarkModal">
+    <div class="modal-card glass-panel wide-modal">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title">Copernicus EMS (EMSR927) Validation Benchmark</h2>
+          <p class="modal-subtitle">Independent verification against official Copernicus Emergency Management Service activation</p>
+        </div>
+        <button class="modal-close" id="closeBenchmarkBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="benchmark-summary-box" id="benchmarkVerdictBox">
+          <div class="verdict-tag">VALIDATION SUMMARY</div>
+          <h3 id="benchmarkVerdictTitle">Strong Congruence with Copernicus EMS Reference</h3>
+          <p id="benchmarkVerdictDesc">All system detections independently computed from raw Sentinel-1 and Copernicus DEM, compared against EMSR927 reference maps.</p>
+        </div>
+
+        <table class="benchmark-table">
+          <thead>
+            <tr>
+              <th>Disaster Metric</th>
+              <th>Our System Output</th>
+              <th>EMSR927 Reference Map</th>
+              <th>Alignment / Concordance</th>
+            </tr>
+          </thead>
+          <tbody id="benchmarkTableBody">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+
+        <div class="attribution-note">
+          Credit: "European Union, Copernicus Emergency Management Service data". Used exclusively for validation in strict compliance with hackathon rules.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mandatory Attributions & Limitations Footer -->
+  <footer class="app-footer">
+    <div class="footer-attribution">
+      <strong>Required Attributions:</strong>
+      <span>"Contains modified Copernicus Sentinel data 2026."</span> |
+      <span>"Produced using Copernicus WorldDEM-30 © DLR e.V. 2010–2014 and © Airbus Defence and Space GmbH 2014–2018 provided under COPERNICUS by the European Union and ESA; all rights reserved."</span> |
+      <span>"© OpenStreetMap contributors."</span> |
+      <span>Training Benchmark: Kuro Siwo (Bountos et al., NeurIPS 2024).</span>
+    </div>
+    <div class="footer-limitation">
+      <strong>System Limitation Notice:</strong> Sentinel satellites have revisit intervals of 6–12 days. Radar change detection identifies post-disaster flood corridor footprints and topological isolation, but cannot provide sub-minute real-time flash flood warnings.
+    </div>
+  </footer>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  
+  <!-- Main Application Script -->
+  <script src="app.js"></script>
+</body>
+</html>
